@@ -22,8 +22,6 @@ RUN chown -R www-data:www-data /var/www/html
 # Expor porta 80 para o tráfego externo
 EXPOSE 80
 
-# Adicionar um script PHP de teste
-COPY info.php /var/www/html/
 
 # Comando para iniciar o Apache em primeiro plano ao iniciar o contêiner
 CMD ["apache2-foreground"]
