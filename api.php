@@ -1,31 +1,23 @@
 <?php
 header('Content-Type: text/html; charset=utf-8');
 require 'get_bearer.php';
-
-// Carrega as configurações do arquivo JSON
 $config = file_get_contents('config.json');
 $config = json_decode($config, true);
 
-// Verifica se o parâmetro 'consulta' foi recebido
 if (!isset($_GET['consulta'])) {
-    error_log('Consulta de CPF: Parâmetro "consulta" não recebido.');
     exit;
 }
 
-// Obtém e limpa o CPF
 $cpf = trim($_GET['consulta']);
 $cpf = preg_replace("/[^0-9]/", "", $cpf); // Remove caracteres não numéricos do CPF
 
-// Verifica se o CPF está no formato correto
 if (empty($cpf) || strlen($cpf) !== 11) {
-    error_log('Consulta de CPF inválida: CPF não está no formato correto.');
     die('⚠️ Por favor, digite um CPF válido.');
 }
 
-// Obtém o token de acesso do arquivo de configuração
 $bearer_token = $config['sipni_token'];
 
-// Inicia a requisição CURL para consultar o CPF na API
+// Consulta principal
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, 'https://servicos-cloud.saude.gov.br/pni-bff/v1/cidadao/cpf/'.$cpf);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
@@ -41,40 +33,16 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, array(
     'Referer: https://si-pni.saude.gov.br/'
 ));
 $response = curl_exec($ch);
-
-// Verifica por erros na requisição CURL
-if (curl_errno($ch)) {
-    error_log('Erro na requisição CURL: ' . curl_error($ch));
-    die('⚠️ Ocorreu um erro ao processar a requisição.');
-}
-
-// Obtém o código HTTP da resposta
-$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-// Fecha a conexão CURL
-curl_close($ch);
-
-// Verifica se houve erro na requisição HTTP
-if ($http_code !== 200) {
-    error_log('Erro na requisição HTTP: Código ' . $http_code);
-    die('⚠️ Ocorreu um erro ao processar a requisição.');
-}
-
-// Decodifica a resposta JSON
 $parsed = json_decode($response, true);
 
-// Verifica se o token de acesso expirou ou é inválido
 if (stripos($response, 'Token do usuário do SCPA inválido/expirado') !== false || stripos($response, 'Não autorizado') !== false || stripos($response, 'Unauthorized') !== false) {
-    $config['sipni_token'] = get_bearer_sipni(); // Obtém um novo token de acesso
+    $config['sipni_token'] = get_bearer_sipni();
     $config = json_encode($config);
-    file_put_contents('config.json', $config); // Atualiza o arquivo de configuração com o novo token
-    header('Location: ' . $_SERVER['PHP_SELF'] . '?consulta=' . $cpf); // Redireciona para tentar a consulta novamente
-    exit;
+    file_put_contents('config.json', $config);
+    header('Location: ' . $_SERVER['PHP_SELF'] . '?consulta=' . $cpf);
 }
 
-// Verifica se não há registros encontrados para o CPF
 if (empty($parsed['records'])) {
-    error_log('CPF não encontrado na API.');
     die('⚠️ CPF não encontrado.');
 }
 
@@ -83,6 +51,7 @@ function formatarData($data) {
     $timestamp = strtotime($data);
     return date('d/m/Y', $timestamp);
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -258,4 +227,4 @@ function formatarData($data) {
     <?php endif; ?>
 
 </body>
-</html>
+</html> 
